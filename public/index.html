@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convertisseur HEIC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f2f2f7;color:#1c1c1e;min-height:100vh;padding:24px 16px}
+h1{font-size:1.4rem;font-weight:700;margin-bottom:20px;text-align:center}
+.card{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card h2{font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#6e6e73;margin-bottom:14px}
+#dropZone{border:2px dashed #c7c7cc;border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;transition:.2s;background:#fafafa}
+#dropZone.drag-over{border-color:#007aff;background:#e8f0fe}
+#dropZone p{font-size:.95rem;color:#636366}
+#dropZone span{font-size:.8rem;color:#aeaeb2;display:block;margin-top:4px}
+#dropZone svg{display:block;margin:0 auto 10px}
+#fileInput{display:none}
+.option-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f2f2f7;gap:12px}
+.option-row:last-child{border-bottom:none}
+.option-label{font-size:.95rem;min-width:90px}
+.seg{display:flex;background:#e5e5ea;border-radius:8px;padding:2px;gap:2px}
+.seg button{border:none;background:transparent;padding:5px 18px;border-radius:6px;font-size:.88rem;font-weight:500;cursor:pointer;color:#636366;transition:.15s}
+.seg button.active{background:#fff;color:#1c1c1e;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.slider-wrap{display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end}
+input[type=range]{-webkit-appearance:none;width:130px;height:4px;border-radius:2px;background:#e5e5ea;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer}
+.slider-label{font-size:.82rem;color:#636366;min-width:72px;text-align:right}
+#fileList{display:none}
+.file-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f2f2f7;font-size:.88rem}
+.file-item:last-child{border-bottom:none}
+.file-name{flex:1;color:#1c1c1e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-size{color:#aeaeb2;font-size:.78rem;min-width:56px;text-align:right}
+.file-status{font-size:.78rem;min-width:80px;text-align:right;color:#aeaeb2}
+.file-status.done{color:#34c759}
+.file-status.error{color:#ff3b30;font-size:.7rem;min-width:200px}
+.file-status.converting{color:#007aff}
+.dl-btn{background:#007aff;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:.78rem;cursor:pointer;white-space:nowrap}
+.dl-btn:disabled{background:#c7c7cc;cursor:default}
+.btn-row{display:flex;gap:10px;margin-top:16px}
+button.primary{flex:1;background:#007aff;color:#fff;border:none;border-radius:10px;padding:12px;font-size:1rem;font-weight:600;cursor:pointer}
+button.primary:disabled{opacity:.4;cursor:default}
+button.secondary{flex:1;background:#e5e5ea;color:#1c1c1e;border:none;border-radius:10px;padding:12px;font-size:1rem;font-weight:600;cursor:pointer}
+button.secondary:disabled{opacity:.4;cursor:default}
+#progressWrap{display:none;margin-top:12px}
+#progressBar{width:100%;height:6px;border-radius:3px;background:#e5e5ea;overflow:hidden}
+#progressFill{height:100%;background:#007aff;border-radius:3px;transition:width .2s;width:0%}
+#progressText{font-size:.8rem;color:#636366;text-align:center;margin-top:6px}
+#banner{border-radius:10px;padding:12px 16px;font-size:.83rem;margin-bottom:16px;text-align:center}
+#banner.info{background:#e8f0fe;border:1px solid #007aff;color:#004aad}
+#banner.ok{background:#edfaf1;border:1px solid #34c759;color:#1a6b35}
+#banner.error{background:#ffeaea;border:1px solid #ff3b30;color:#c00}
+</style>
+</head>
+<body>
+<h1>🖼️ Convertisseur HEIC</h1>
+<div id="banner" class="info">⏳ Chargement du décodeur…</div>
+
+<div class="card">
+  <h2>Fichiers</h2>
+  <div id="dropZone">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#aeaeb2" stroke-width="1.5">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p>Glisser-déposer vos fichiers HEIC ici</p>
+    <span>ou cliquer pour sélectionner</span>
+  </div>
+  <input type="file" id="fileInput" accept=".heic,.heif,image/heic,image/heif" multiple>
+</div>
+
+<div class="card">
+  <h2>Options</h2>
+  <div class="option-row">
+    <span class="option-label">Format</span>
+    <div class="seg">
+      <button class="active" id="btnJPEG" onclick="setFormat('JPEG')">JPEG</button>
+      <button id="btnPNG" onclick="setFormat('PNG')">PNG</button>
+    </div>
+  </div>
+  <div class="option-row" id="qualityRow">
+    <span class="option-label">Qualité</span>
+    <div class="slider-wrap">
+      <input type="range" id="qualitySlider" min="0" max="100" value="92" oninput="updateQuality()">
+      <span class="slider-label" id="qualityLabel">Très haute · 92</span>
+    </div>
+  </div>
+  <div class="option-row">
+    <span class="option-label">Résolution</span>
+    <div class="slider-wrap">
+      <input type="range" id="resSlider" min="10" max="100" value="100" step="5" oninput="updateRes()">
+      <span class="slider-label" id="resLabel">100 %</span>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="fileList">
+  <h2>Fichiers sélectionnés (<span id="fileCount">0</span>)</h2>
+  <div id="fileItems"></div>
+  <div id="progressWrap">
+    <div id="progressBar"><div id="progressFill"></div></div>
+    <p id="progressText"></p>
+  </div>
+  <div class="btn-row">
+    <button class="primary" id="convertBtn" onclick="startConvert()" disabled>Convertir</button>
+    <button class="secondary" id="dlAllBtn" onclick="downloadAll()" disabled>Tout télécharger (.zip)</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="heic-decode-bundle.js"></script>
+<script>
+'use strict';
+let files = [], converted = [], fmt = 'JPEG';
+let heicDecode = null;
+
+window.addEventListener('load', () => {
+  try {
+    if (window.HeicDecodeLib && window.HeicDecodeLib.heicDecode) {
+      heicDecode = window.HeicDecodeLib.heicDecode;
+      setBanner('ok', '✅ Prêt à convertir');
+    } else {
+      throw new Error('HeicDecodeLib introuvable');
+    }
+  } catch(e) {
+    setBanner('error', '❌ Erreur décodeur : ' + e.message);
+  }
+});
+
+const banner = document.getElementById('banner');
+function setBanner(t, m) { banner.className = t; banner.textContent = m; }
+
+const dz = document.getElementById('dropZone'), fi = document.getElementById('fileInput');
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFiles([...e.dataTransfer.files]); });
+fi.addEventListener('change', () => handleFiles([...fi.files]));
+
+function handleFiles(raw) {
+  const valid = raw.filter(f => /\.(heic|heif)$/i.test(f.name) || f.type === 'image/heic' || f.type === 'image/heif');
+  if (!valid.length) { alert('Aucun fichier HEIC/HEIF détecté.'); return; }
+  files = valid; converted = [];
+  renderList();
+  document.getElementById('convertBtn').disabled = !heicDecode;
+  document.getElementById('dlAllBtn').disabled = true;
+}
+
+function renderList() {
+  document.getElementById('fileList').style.display = 'block';
+  document.getElementById('fileCount').textContent = files.length;
+  const items = document.getElementById('fileItems');
+  items.innerHTML = '';
+  files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'file-item';
+    row.innerHTML = `<span class="file-name">${f.name}</span><span class="file-size">${(f.size/1024/1024).toFixed(1)} Mo</span><span class="file-status" id="status-${i}">En attente</span><button class="dl-btn" id="dl-${i}" disabled>↓</button>`;
+    items.appendChild(row);
+  });
+  document.getElementById('progressWrap').style.display = 'none';
+}
+
+function setFormat(f) {
+  fmt = f;
+  ['JPEG','PNG'].forEach(x => document.getElementById('btn'+x).classList.toggle('active', x===f));
+  document.getElementById('qualityRow').style.opacity = f==='PNG'?'0.4':'1';
+  document.getElementById('qualityRow').style.pointerEvents = f==='PNG'?'none':'auto';
+}
+function updateQuality() {
+  const v = +document.getElementById('qualitySlider').value;
+  document.getElementById('qualityLabel').textContent = `${v<=25?'Basse':v<=50?'Moyenne':v<=75?'Haute':'Très haute'} · ${v}`;
+}
+function updateRes() {
+  document.getElementById('resLabel').textContent = document.getElementById('resSlider').value + ' %';
+}
+
+async function startConvert() {
+  if (!heicDecode) { alert('Décodeur non prêt.'); return; }
+  const quality = +document.getElementById('qualitySlider').value / 100;
+  const scale   = +document.getElementById('resSlider').value / 100;
+  const mime    = fmt === 'JPEG' ? 'image/jpeg' : 'image/png';
+  const ext     = fmt.toLowerCase();
+  converted = [];
+  document.getElementById('convertBtn').disabled = true;
+  document.getElementById('dlAllBtn').disabled = true;
+  document.getElementById('progressWrap').style.display = 'block';
+  const fill = document.getElementById('progressFill'), ptxt = document.getElementById('progressText');
+  for (let i = 0; i < files.length; i++) {
+    setStatus(i, 'converting', 'Conversion…');
+    fill.style.width = (i / files.length * 100) + '%';
+    ptxt.textContent = `${i+1} / ${files.length}`;
+    try {
+      const buf = await files[i].arrayBuffer();
+      const { width, height, data } = await heicDecode({ buffer: buf });
+      const srcC = document.createElement('canvas');
+      srcC.width = width; srcC.height = height;
+      srcC.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data), width, height), 0, 0);
+      const w = Math.round(width*scale), h = Math.round(height*scale);
+      const dstC = document.createElement('canvas');
+      dstC.width = w; dstC.height = h;
+      dstC.getContext('2d').drawImage(srcC, 0, 0, w, h);
+      const blob = await new Promise((res, rej) =>
+        dstC.toBlob(b => b ? res(b) : rej(new Error('toBlob échoué')), mime, mime==='image/jpeg'?quality:undefined)
+      );
+      const name = files[i].name.replace(/\.[^.]+$/, '') + '.' + ext;
+      converted[i] = { name, blob };
+      const btn = document.getElementById('dl-'+i);
+      btn.disabled = false; btn.onclick = () => triggerDownload(blob, name);
+      setStatus(i, 'done', '✓ Prêt');
+    } catch(err) {
+      console.error(err);
+      setStatus(i, 'error', '✗ ' + (err.message || String(err)));
+    }
+  }
+  fill.style.width = '100%'; ptxt.textContent = 'Terminé !';
+  document.getElementById('convertBtn').disabled = false;
+  document.getElementById('dlAllBtn').disabled = !converted.some(Boolean);
+}
+
+function setStatus(i, cls, txt) {
+  const el = document.getElementById('status-'+i);
+  el.className = 'file-status ' + cls; el.textContent = txt;
+}
+function triggerDownload(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+async function downloadAll() {
+  const zip = new JSZip();
+  converted.forEach(c => { if(c) zip.file(c.name, c.blob); });
+  triggerDownload(await zip.generateAsync({type:'blob'}), 'images-converties.zip');
+}
+</script>
+</body>
+</html>
